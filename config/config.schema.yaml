@@ -1,0 +1,161 @@
+"$schema": "http://json-schema.org/draft-07/schema#"
+"$id": "http://matrix.org/bifrost/schema"
+type: object
+required: ["bridge", "datastore", "purple", "portals"]
+properties:
+    bridge:
+        type: object
+        required: ["domain", "homeserverUrl", "userPrefix"]
+        properties:
+          domain:
+            type: string
+          homeserverUrl:
+            type: string
+          mediaserverUrl:
+            type: string
+          userPrefix:
+            type: string
+          appservicePort:
+            type: number
+          adminMxID:
+            type: string
+    datastore:
+        required: ["engine"]
+        type: "object"
+        properties:
+            engine:
+                type: string
+                enum: 
+                    - postgres
+                    - nedb
+            connectionString:
+                type: string
+    purple:
+        type: "object"
+        properties:
+            required: ["backend", "backendOpts"]
+            backend:
+                type: string
+                enum:
+                    - xmpp-js
+                    - node-purple
+            # This may be anything
+            backendOpts:
+                type: object
+                additionalProperties:
+                # Any type
+            defaultAccountSettings:
+                type: object
+                additionalProperties:
+                    type: object
+                    additionalProperties:
+                    # Any type
+    portals:
+        type: "object"
+        properties:
+            enableGateway:
+                type: boolean
+            aliases:
+                type: object
+                propertyNames:
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                additionalProperties:
+                    type: "object"
+                    required: ["protocol", "properties"]
+                    properties:
+                        protocol:
+                            type: string
+                        properties:
+                            type: object
+                            additionalProperties:
+                                type: string
+    autoRegistration:
+        type: "object"
+        if:
+            properties:
+                enabled: 
+                    const: true
+        then:
+            required: ["protocolSteps"]
+        properties:
+            enabled:
+                type: boolean
+            protocolSteps:
+                type: object
+                additionalProperties: true
+
+    access:
+        type: "object"
+        properties:
+            accountCreation:
+                required: ["whitelist"]
+                properties:
+                    whitelist:
+                        type: "array"
+                        items:
+                            type: "string"
+
+    metrics:
+        type: "object"
+        required: ["enabled"]
+        properties:
+            enabled:
+                type: boolean
+    
+    provisioning:
+        type: "object"
+        properties:
+            enablePlumbing:
+                type: boolean
+            requiredUserPL:
+                type: number
+    
+    logging:
+        type: object
+        properties:
+            console:
+                type: "string"
+                enum: ["error", "warn", "info", "debug", "off"]
+            files:
+                type: "object"
+                items:
+                    additionalProperties:
+                        type: "string"
+                        enum: ["error","warn","info","debug"]
+    
+    roomRules:
+        type: array
+        items:
+            type: "object"
+            properties:
+                room:
+                    type: "string"
+                    pattern: "^(!|#).+:.+$"
+                action:
+                    type: "string"
+                    enum: ["allow", "deny"]
+                
+    messageRules:
+        type: array
+        items:
+            type: "object"
+            properties:
+                sender:
+                    type: "string"
+                message:
+                    type: "string"
+                action:
+                    type: "string"
+                    enum: [ "allow", "deny" ]
+
+    tuning:
+        type: "object"
+        properties:
+            waitOnProfileBeforeSend:
+                type: boolean
+            conferencePMFallbackCheck:
+                type: boolean
+            waitOnJoinBeforePM:
+                type: "array"
+                items:
+                    type: "string"
