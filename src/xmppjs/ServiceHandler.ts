@@ -146,7 +146,7 @@ export class ServiceHandler {
                 xmlns: "jabber:iq:version",
             },
             [
-                x("name", undefined, "matrix-bifrost"),
+                x("name", undefined, "archon-bifrost"),
                 x("version", undefined, BridgeVersion),
             ],
             ),
