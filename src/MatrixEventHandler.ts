@@ -246,6 +246,19 @@ export class MatrixEventHandler {
                     log.info(`Left and removed entry for ${event.room_id} because the user left`);
                 }
                 return;
+            } else if (roomType === MROOM_TYPE_IM && event.content.membership === "leave") {
+                const protocol = this.purple.getProtocol(ctx.remote.get<string>("protocol_id"));
+                const ghostMxId = protocol.getMxIdForProtocol(
+                    ctx.remote.get<string>("recipient"),
+                    this.config.bridge.domain,
+                    this.config.bridge.userPrefix,
+                );
+                await this.bridge.getIntent(ghostMxId.userId).leave(event.room_id).catch((err) => {
+                    log.error("Failed to remove puppet:", err);
+                });
+                await this.store.removeRoomByRoomId(event.room_id);
+                log.info(`Left and removed DM entry for ${event.room_id} because the user left`);
+                return;
             }
 
             // Validate room entries

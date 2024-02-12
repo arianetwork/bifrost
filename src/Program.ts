@@ -251,16 +251,15 @@ class Program {
             log.warn("BIFROST_CHECK_ONLY is set, exiting");
             process.exit(0);
         }
-        await this.waitForHomeserver();
         await this.bridge.listen(port);
         log.info("Started appservice listener on port", port);
-        await this.pingBridge();
-        await this.registerBot();
-
         if (this.cfg.metrics.enabled) {
             log.info("Enabling metrics");
             Metrics.init(this.bridge);
         }
+        await this.waitForHomeserver();
+        await this.pingBridge();
+        await this.registerBot();
 
         this.profileSync = new ProfileSync(this.bridge, this.cfg, this.store);
         this.roomHandler = new MatrixRoomHandler(
