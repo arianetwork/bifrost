@@ -27,6 +27,7 @@ const log = Logging.get("MatrixRoomHandler");
 
 const ACCOUNT_LOCK_MS = 1000;
 const EVENT_MAPPING_SIZE = 16384;
+const ROOM_CACHE_SIZE = 75;
 
 /**
  * Handles creation and handling of rooms.
@@ -37,7 +38,7 @@ export class MatrixRoomHandler {
     private alreadyKnownSenders: Set<string>;
     private remoteEventIdMapping: Map<string, string>; // remote_id -> event_id
     private roomCreationLock: Map<string, Promise<RoomBridgeStoreEntry>>;
-    private remoteEntriesCache: Map<IRemoteGroupData, any>;
+    private imRoomCache: Map<string, RoomBridgeStoreEntry>;
     constructor(
         private purple: IBifrostInstance,
         private profileSync: ProfileSync,
@@ -48,7 +49,6 @@ export class MatrixRoomHandler {
         this.accountRoomLock = new Set();
         this.alreadyKnownSenders = new Set();
         this.roomCreationLock = new Map();
-        this.remoteEntriesCache = new Map();
         if (this.purple.needsDedupe() || this.purple.needsAccountLock()) {
             purple.on("chat-joined", this.onChatJoined.bind(this));
         }
@@ -109,10 +109,15 @@ export class MatrixRoomHandler {
             }
         });
         this.remoteEventIdMapping = new Map();
+        this.imRoomCache = new Map();
         purple.on("read-receipt", this.handleReadReceipt.bind(this));
         purple.on("remove-room-lock", (data: { roomId: string }) => {
             log.info(`Called for creation lock deletion on ${data.roomId}, probably room was plumbed...`);
             this.roomCreationLock.delete(data.roomId);
+        });
+        purple.on("evict-im-cache", (data: { senderId: string }) => {
+            log.info(`Called for cache eviction on ${data.senderId} DM, removing...`);
+            this.imRoomCache.delete(data.senderId);
         });
         purple.on("initialize-instance", this.handleStartup.bind(this));
     }
@@ -160,7 +165,23 @@ export class MatrixRoomHandler {
             }
             const remoteEntries = await this.store.getIMRoom(matrixUser.getId(), data.account.protocol_id, data.sender);
             if (remoteEntries != null && remoteEntries.matrix) {
-                return remoteEntries.matrix.getId();
+                const ghostMxId = this.purple.getProtocol(data.account.protocol_id).getMxIdForProtocol(
+                    data.sender,
+                    this.config.bridge.domain,
+                    this.config.bridge.userPrefix,
+                );
+                const roomId = remoteEntries.matrix.getId();
+                const state = await this.bridge.getIntent(ghostMxId.userId).roomState(roomId) as WeakEvent[];
+                const isOrphaned = state.find((e) => e.type === "m.room.membership" && e.content.membership === "leave");
+                if (isOrphaned) {
+                    await this.bridge.getIntent(ghostMxId.userId).leave(roomId).catch((err) => {
+                        log.error("Failed to remove puppet:", err);
+                    });
+                    await this.store.removeRoomByRoomId(roomId);
+                    log.info(`Left and removed orphaned DM entry for ${roomId}`);
+                } else {
+                    return roomId;
+                }
             }
             return null;
         } catch (ex) {
@@ -170,7 +191,8 @@ export class MatrixRoomHandler {
 
     private async createOrGetIMRoom(data: IReceivedImMsg, matrixUser: MatrixUser, intent: Intent): Promise<string> {
         try {
-            const existingRoomId = await this.getIMRoomId(data, matrixUser);
+            const cachedId = this.imRoomCache.get(data.sender) ? this.imRoomCache.get(data.sender).matrix.getId() : null; 
+            const existingRoomId = cachedId || await this.getIMRoomId(data, matrixUser);
             if (existingRoomId) {
                 return existingRoomId;
             }
@@ -186,6 +208,7 @@ export class MatrixRoomHandler {
                 recipient: data.sender,
             };
             let roomId: string;
+            let recipientId: string;
             const createPromise = intent.createRoom({
                 createAsClient: true,
                 options: {
@@ -209,10 +232,17 @@ export class MatrixRoomHandler {
                     await this.deduplicator.waitForJoin(result.matrix.getId(), matrixUser.getId());
                     log.info("User joined, can now send messages");
                 }
+                recipientId = result.remote.get<string>("recipient");
+                if (this.imRoomCache.size >= ROOM_CACHE_SIZE) {
+                    const keyArr = [...this.imRoomCache.keys()].slice(0, 25);
+                    keyArr.forEach(this.imRoomCache.delete.bind(this.imRoomCache));
+                }
+                this.imRoomCache.set(recipientId, result);
                 this.roomCreationLock.delete(remoteId);
                 return result.matrix.getId();
             } catch (ex) {
                 log.error("Failed to create room", ex);
+                this.imRoomCache.delete(recipientId);
                 this.roomCreationLock.delete(remoteId);
                 throw ex;
             }

@@ -256,6 +256,7 @@ export class MatrixEventHandler {
                 await this.bridge.getIntent(ghostMxId.userId).leave(event.room_id).catch((err) => {
                     log.error("Failed to remove puppet:", err);
                 });
+                this.purple.emit("evict-im-cache", { senderId: ctx.remote.get<string>("recipient") });
                 await this.store.removeRoomByRoomId(event.room_id);
                 log.info(`Left and removed DM entry for ${event.room_id} because the user left`);
                 return;
@@ -583,6 +584,7 @@ export class MatrixEventHandler {
                         const roomCtx = await this.store.getRoomEntryByMatrixId(room_id);
                         const state = await intent.roomState(room_id) as WeakEvent[];
                         const props = roomCtx.remote.get<IChatJoinProperties>("properties");
+                        const recipient = roomCtx.remote.get<string>("recipient");
                         const protocol_id = roomCtx.remote.get<string>("protocol_id");
                         let occupants = state.filter((e) => e.type === "m.room.member").map((e: WeakEvent) => (
                             {
@@ -594,6 +596,9 @@ export class MatrixEventHandler {
                         ));
                         log.info(`purging occupants from ${room_id}`);
                         const protocol = this.purple.getProtocol(protocol_id);
+                        if (recipient) {
+                            this.purple.emit("evict-im-cache", { senderId: recipient });
+                        }
                         await Promise.all(occupants.map(async (userId) => {
                             if (userId.membership === "join") {
                                 if (!userId.isRemote) {

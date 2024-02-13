@@ -54,6 +54,7 @@ export interface IBifrostInstance extends EventEmitter {
     on(name: "store-remote-user", cb: (ev: IStoreRemoteUser) => void);
     on(name: "read-receipt", cb: (ev: IChatReadReceipt) => void);
     on(name: "remove-room-lock", cb: (ev: { roomId: string }) => void);
+    on(name: "evict-im-cache", cb: (ev: { senderId: string }) => void);
     on(name: "initialize-instance", cb: (ev: any) => void);
     eventAck(eventName: string, data: IEventBody);
 
