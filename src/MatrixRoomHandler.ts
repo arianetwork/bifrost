@@ -620,12 +620,7 @@ export class MatrixRoomHandler {
                 this.store.removeGhost(senderMatrixUser.getId(), protocol, data.sender);
                 return; // Hack, just no-op joins for malformed UTF puppets
             }
-            const intentUser = (typeof (data.kicker) === "string") ? protocol.getMxIdForProtocol(
-                data.kicker,
-                this.config.bridge.domain,
-                this.config.bridge.userPrefix,
-            ) : senderMatrixUser;
-            const intent = this.bridge.getIntent(intentUser.userId);
+            const intent = this.bridge.getIntent(senderMatrixUser.userId);
             const roomId = await this.createOrGetGroupChatRoom(data, intent, true).catch((ex) => {
                 log.error(`Didn't handle join for ${data.sender} -> ${ex}`);
                 return;
@@ -653,8 +648,16 @@ export class MatrixRoomHandler {
                         await intent.join(roomId);
                     }
                 } else if (data.state === "kick") {
-                    await intent.kick(roomId, senderMatrixUser.getId(), data.reason || undefined);
-                    this.alreadyKnownSenders.delete(data.sender);
+                    const intentUser = (typeof (data.kicker) === "string") ? protocol.getMxIdForProtocol(
+                        data.kicker,
+                        this.config.bridge.domain,
+                        this.config.bridge.userPrefix,
+                    ) : null;
+                    if (intentUser) {
+                        const intentKicker = this.bridge.getIntent(intentUser.userId); 
+                        await intentKicker.kick(roomId, senderMatrixUser.getId(), data.reason || undefined);
+                        this.alreadyKnownSenders.delete(data.sender);
+                    }
                 } else if (data.state === "left") {
                     if (this.config.tuning.limitStateChanges &&
                         (!data.gatewayAlias && !data.banner && (!data.kicker || (data.kicker && data.technical)))
