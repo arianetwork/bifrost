@@ -268,6 +268,7 @@ export class StzaMessage extends StzaBase {
         to: string,
         idOrMsg?: string|IBasicProtocolMessage,
         public messageType?: string,
+        public mucPM?: boolean,
     ) {
         super(from, to, undefined);
         if (idOrMsg && (idOrMsg.hasOwnProperty("body") || idOrMsg.hasOwnProperty("redacted"))) {
@@ -356,10 +357,14 @@ export class StzaMessage extends StzaBase {
         if (this.stanzaId) {
             stanzaId = `<stanza-id id='${this.stanzaId}' xmlns='urn:xmpp:sid:0' by='${jid(this.from)?.bare()?.toString()}'/>`;
         }
+        let mucPM: string = "";
+        if (this.mucPM) {
+            mucPM = `<x xmlns='http://jabber.org/protocol/muc#user'/>`;
+        }
         const bodyEl = this.body ? `<body>${encode(this.body)}</body>` : "";
         const toAttr = this.to ? `to='${this.to}' ` : "";
         return `<message ${xmlns}from='${this.from}' ${toAttr}id='${this.id}'${type}>`
-            + `${this.html}${bodyEl}${attachments}${markable}${replaces}${redacts}${originId}${stanzaId}</message>`;
+            + `${this.html}${bodyEl}${attachments}${markable}${replaces}${redacts}${originId}${stanzaId}${mucPM}</message>`;
     }
 }
 

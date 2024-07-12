@@ -105,12 +105,19 @@ export class XmppJsAccount implements IBifrostAccount {
             recipient = res.recipient;
             sender = res.sender;
         }
+        let isRoomPM: boolean;
+        const match = recipient.match(HANDLE_REGEX);
+        const roomName = match && match[1];
+        if (roomName && this.roomHandles.has(roomName)) {
+            isRoomPM = true;
+        }
         log.debug(`IM ${sender} -> ${recipient}`);
         const message = new StzaMessage(
             sender,
             recipient,
             msg,
             "chat",
+            isRoomPM,
         );
         if (!this.pmSessions.has(recipient)) {
             this.pmSessions.add(recipient);
