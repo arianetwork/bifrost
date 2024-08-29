@@ -642,6 +642,15 @@ export class XmppJsInstance extends EventEmitter implements IBifrostInstance {
         try {
             const startedAt = Date.now();
             if (this.xmppSeenStanza(stanza) && stanza.attrs.type !== "unavailable" && stanza.attrs.type !== "error") {
+                if (stanza.name == "message" && stanza.attrs.type == "groupchat" && this.sentMessageStanzas.has(stanza.attrs.id)) {
+                    let stanzaId = stanza.getChild("stanza-id", "urn:xmpp:sid:0")?.getAttr("id");
+                    if (stanzaId) {
+                        this.emit("stanza-id-reference", {
+                            stanza_id: stanzaId,
+                            event_id: stanza.attrs.id
+                        });
+                    }
+                }
                 return;
             }
             if ((stanza.name === "message" || stanza.name === "presence") &&

@@ -37,6 +37,7 @@ export class MatrixRoomHandler {
     private accountRoomLock: Set<string>;
     private alreadyKnownSenders: Set<string>;
     private remoteEventIdMapping: Map<string, string>; // remote_id -> event_id
+    private stanzaEventIdMapping: Map<string, string>; // stanza_id -> event_id
     private roomCreationLock: Map<string, Promise<RoomBridgeStoreEntry>>;
     constructor(
         private purple: IBifrostInstance,
@@ -108,7 +109,17 @@ export class MatrixRoomHandler {
             }
         });
         this.remoteEventIdMapping = new Map();
+        this.stanzaEventIdMapping = new Map();
         purple.on("read-receipt", this.handleReadReceipt.bind(this));
+        purple.on("stanza-id-reference", (data: { stanza_id: string, event_id: string }) => {
+            log.info(`Adding reference for reflected stanza id to our message: stanza_id > ${data.stanza_id}, event_id > ${data.event_id}`);
+            this.stanzaEventIdMapping.set(data.stanza_id, data.event_id);
+            // Remove old entires.
+            if (this.stanzaEventIdMapping.size >= EVENT_MAPPING_SIZE) {
+                const keyArr = [...this.stanzaEventIdMapping.keys()].slice(0, 50);
+                keyArr.forEach(this.stanzaEventIdMapping.delete.bind(this.stanzaEventIdMapping));
+            }
+        });
         purple.on("remove-room-lock", (data: { roomId: string }) => {
             log.info(`Called for creation lock deletion on ${data.roomId}, probably room was plumbed...`);
             this.roomCreationLock.delete(data.roomId);
@@ -443,11 +454,17 @@ export class MatrixRoomHandler {
                 try {
                     const botIntent = this.bridge.getIntent();
                     const roomId = await this.createOrGetGroupChatRoom(data, botIntent, true, true);
-                    const eventId = await this.store.getMatrixIdFromStanzaId(roomId, data.message.redacted.redact_id);
+                    let eventId = await this.store.getMatrixIdFromStanzaId(roomId, data.message.redacted.redact_id);
                     if (eventId) {
                         await botIntent.getClient().redactEvent(roomId, eventId, data.message.redacted.reason);
                     } else {
-                        throw Error(`we don't know about ${data.message.redacted.redact_id}`);
+                        eventId = this.stanzaEventIdMapping.get(data.message.redacted.redact_id);
+                        log.info(`Didn't find processed inbound event, attempting to see if we sent it recently: ${eventId}`);
+                        if (eventId) {
+                            await botIntent.getClient().redactEvent(roomId, eventId, data.message.redacted.reason);
+                        } else {
+                            throw Error(`we don't know about ${data.message.redacted.redact_id}`);
+                        }
                     }
                 } catch (e) {
                     log.error(`Failed to redact message ${data.message.redacted.redact_id} for this Group: ${e}`);
