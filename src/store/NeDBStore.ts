@@ -230,11 +230,15 @@ export class NeDBStore implements IStore {
         return null;
     }
 
+    public async getMatrixIdFromStanzaId(roomId: string, matrixEventId: string) {
+        return null;
+    }
+
     public async getOriginIdFromEvent(roomId: string, matrixEventId: string) {
         return null;
     }
 
-    public async getStanzaIdFromEvent(roomId: string, matrixEventId: string) {
+    public async getStanzaIdFromEvent(roomId: string, stanzaId: string) {
         return null;
     }
 

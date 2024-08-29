@@ -14,7 +14,7 @@ export interface IBasicProtocolMessage {
     origin_id?: string;
     stanza_id?: string;
     original_message?: string;
-    redacted?: {redact_id: string, moderation?: boolean, reason?: string};
+    redacted?: {redact_id: string, moderation?: boolean, retraction?: boolean, reason?: string};
     opts?: {
         attachments?: IMessageAttachment[];
     };

@@ -946,8 +946,12 @@ export class XmppJsInstance extends EventEmitter implements IBifrostInstance {
             }
 
             const body = stanza.getChild("body");
-            if (!body) {
+            const retract = stanza.getChildByAttr("xmlns", "urn:xmpp:fasten:0");
+            if (!body && !retract) {
                 log.debug("Don't know how to handle a message without children");
+                return;
+            }
+            if (retract && from.resource && type === "groupchat") {
                 return;
             }
             return this.handleTextMessage(stanza, localAcct, from, convName, alias != null);
@@ -976,15 +980,23 @@ export class XmppJsInstance extends EventEmitter implements IBifrostInstance {
             }
         }
 
+        let redacted: any;
+        if (retract) {
+            const moderation = retract.getChildByAttr("xmlns", "urn:xmpp:message-moderate:0");
+            if (moderation) {
+                redacted = { redact_id: retract.getAttr("id"), moderation: true, reason: moderation.getChildText("reason") };
+            } else {
+                redacted = { redact_id: retract.getAttr("id"), retraction: true };
+            }
+        }
         const message = {
-            body: this.convertXMPPUris(body),
+            body: body ? this.convertXMPPUris(body) : undefined,
             formatted: [],
             id: stanza.attrs.id,
             origin_id: origin_id ? origin_id.getAttr("id") : undefined,
             stanza_id: stanza_id ? stanza_id.getAttr("id") : undefined,
             original_message: replace ? replace.getAttr("id") : undefined,
-            redacted: retract?.getChildByAttr("xmlns", "urn:xmpp:message-retract:0") ?
-                { redact_id: retract.getAttr("id") } : undefined,
+            redacted,
             opts: {
                 attachments,
             },

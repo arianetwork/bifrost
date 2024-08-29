@@ -392,11 +392,9 @@ export class MatrixRoomHandler {
                 // do nothing
                 log.info(`Received retraction by ${data.sender} for ${data.message.redacted.redact_id}`);
                 try {
-                    const isKnown = await intent.getEvent(roomId, data.message.redacted.redact_id, true).catch((ex) => {
-                        log.error("Failed to fetch original message for redaction:", ex);
-                    }) as WeakEvent;
-                    if (isKnown) {
-                        await intent.getClient().redactEvent(roomId, data.message.redacted.redact_id);
+                    const eventId = await this.store.getMatrixEventId(roomId, data.message.redacted.redact_id);
+                    if (eventId) {
+                        await intent.getClient().redactEvent(roomId, eventId, data.message.redacted.reason);
                     } else {
                         throw Error(`Failed to redact, we don't know about ${data.message.redacted.redact_id}`);
                     }
@@ -438,6 +436,25 @@ export class MatrixRoomHandler {
                 throw Error("Couldn't handleIncomingChatMsg, bridge was not defined");
             }
             log.debug(`Handling incoming chat from ${data.sender} (${data.conv.name})`);
+
+            if (data.message.redacted) {
+                // do nothing
+                log.info(`Received group moderation from ${data.conv.name}, handling for ${data.message.redacted.redact_id}`);
+                try {
+                    const botIntent = this.bridge.getIntent();
+                    const roomId = await this.createOrGetGroupChatRoom(data, botIntent, true, true);
+                    const eventId = await this.store.getMatrixIdFromStanzaId(roomId, data.message.redacted.redact_id);
+                    if (eventId) {
+                        await botIntent.getClient().redactEvent(roomId, eventId, data.message.redacted.reason);
+                    } else {
+                        throw Error(`Failed to redact, we don't know about ${data.message.redacted.redact_id}`);
+                    }
+                } catch (e) {
+                    log.error(`Failed to redact message ${data.message.redacted.redact_id} for this Group: ${e}`);
+                }
+                return;
+            }
+
             data.message.body = entityDecode(data.message.body);
             const acctId = Util.createRemoteId(data.account.protocol_id, data.account.username);
             if (this.accountRoomLock.has(
@@ -489,23 +506,6 @@ export class MatrixRoomHandler {
                 roomId = await this.createOrGetGroupChatRoom(data, intent);
             } catch (e) {
                 log.error(`Failed to get/create room for this chat:`, e);
-                return;
-            }
-            if (data.message.redacted) {
-                // do nothing
-                log.info(`Received retraction by ${data.sender}, handling for ${data.message.redacted.redact_id} -> ${data.conv.name}`);
-                try {
-                    const isKnown = await intent.getEvent(roomId, data.message.redacted.redact_id, true).catch((ex) => {
-                        log.error("Failed to fetch original message for redaction:", ex);
-                    }) as WeakEvent;
-                    if (isKnown?.sender === senderMatrixUser.userId) {
-                        await intent.getClient().redactEvent(roomId, data.message.redacted.redact_id);
-                    } else {
-                        throw Error(`Failed to redact ${data.message.redacted.redact_id} -> ds:${senderMatrixUser.userId} ks:${isKnown?.sender}`);
-                    }
-                } catch (e) {
-                    log.error(`Failed to redact message for this Group: ${e}`);
-                }
                 return;
             }
             if (data.message.original_message) {
