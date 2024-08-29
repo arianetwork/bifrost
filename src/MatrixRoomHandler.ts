@@ -396,7 +396,7 @@ export class MatrixRoomHandler {
                     if (eventId) {
                         await intent.getClient().redactEvent(roomId, eventId, data.message.redacted.reason);
                     } else {
-                        throw Error(`Failed to redact, we don't know about ${data.message.redacted.redact_id}`);
+                        throw Error(`we don't know about ${data.message.redacted.redact_id}`);
                     }
                 } catch (e) {
                     log.error(`Failed to redact message for this IM: ${e}`);
@@ -447,7 +447,7 @@ export class MatrixRoomHandler {
                     if (eventId) {
                         await botIntent.getClient().redactEvent(roomId, eventId, data.message.redacted.reason);
                     } else {
-                        throw Error(`Failed to redact, we don't know about ${data.message.redacted.redact_id}`);
+                        throw Error(`we don't know about ${data.message.redacted.redact_id}`);
                     }
                 } catch (e) {
                     log.error(`Failed to redact message ${data.message.redacted.redact_id} for this Group: ${e}`);
