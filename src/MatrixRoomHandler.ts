@@ -112,12 +112,14 @@ export class MatrixRoomHandler {
         this.stanzaEventIdMapping = new Map();
         purple.on("read-receipt", this.handleReadReceipt.bind(this));
         purple.on("stanza-id-reference", (data: { stanza_id: string, event_id: string }) => {
-            log.info(`Adding reference for reflected stanza id to our message: stanza_id > ${data.stanza_id}, event_id > ${data.event_id}`);
-            this.stanzaEventIdMapping.set(data.stanza_id, data.event_id);
-            // Remove old entires.
-            if (this.stanzaEventIdMapping.size >= EVENT_MAPPING_SIZE) {
-                const keyArr = [...this.stanzaEventIdMapping.keys()].slice(0, 50);
-                keyArr.forEach(this.stanzaEventIdMapping.delete.bind(this.stanzaEventIdMapping));
+            if (!this.stanzaEventIdMapping.has(data.stanza_id)) {
+                log.info(`Adding reference for reflected stanza id to our message: stanza_id > ${data.stanza_id}, event_id > ${data.event_id}`);
+                this.stanzaEventIdMapping.set(data.stanza_id, data.event_id);
+                // Remove old entires.
+                if (this.stanzaEventIdMapping.size >= EVENT_MAPPING_SIZE) {
+                    const keyArr = [...this.stanzaEventIdMapping.keys()].slice(0, 50);
+                    keyArr.forEach(this.stanzaEventIdMapping.delete.bind(this.stanzaEventIdMapping));
+                }
             }
         });
         purple.on("remove-room-lock", (data: { roomId: string }) => {
