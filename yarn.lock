@@ -683,10 +683,9 @@
     "@xmpp/connection" "^0.12.0"
     "@xmpp/xml" "^0.12.0"
 
-"@xmpp/connection@^0.12.0":
+"@xmpp/connection@^0.12.0", "@xmpp/connection@maranda/aria-net-connection":
   version "0.12.0"
-  resolved "https://registry.yarnpkg.com/@xmpp/connection/-/connection-0.12.0.tgz#59c63e5d32c44eb4a27127b9d5614def3df41266"
-  integrity sha512-5pbLGpsbbLobcMuR/wcQ8IgTK7W6k5vsFKrXJkttE8Ryesuku7+t+m4nTX/l/24xBLTRjckcSyCb5byhNuHLVg==
+  resolved "https://codeload.github.com/maranda/aria-net-connection/tar.gz/2650924bd40df62e98035b6b696f9069d91dedbc"
   dependencies:
     "@xmpp/error" "^0.12.0"
     "@xmpp/events" "^0.12.0"
