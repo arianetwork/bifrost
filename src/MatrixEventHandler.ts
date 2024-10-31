@@ -52,6 +52,11 @@ export class MatrixEventHandler {
 
     public async onAliasQuery(alias: string, aliasLocalpart: string) {
         try {
+            if (this.config.getRoomRule(alias) === "deny") {
+                log.warn(`Bridging of ${alias} is denied by Room Rules`);
+                throw Error("Bridging denied");
+            }
+
             const res = this.roomAliases.getOptsForAlias(aliasLocalpart);
             log.info(`Got request to bridge ${aliasLocalpart}`);
             if (!res) {
