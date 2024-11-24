@@ -81,12 +81,14 @@ export class Config {
     public readonly access: IConfigAccessControl = { };
 
     public getRoomRule(roomIdOrAlias?: string) {
-        const aliasRule = this.roomRules.find((r) => r.room === roomIdOrAlias);
-        if (aliasRule && aliasRule.action === "deny") {
-            return "deny";
+        if (roomIdOrAlias) {
+            const roomRule = this.roomRules.find((r) => {
+                const room = new RegExp(r.room, "is");
+                return roomIdOrAlias.match(room);
+            });
+            return roomRule?.action || "allow";
         }
-        const roomIdRule = this.roomRules.find((r) => r.room === roomIdOrAlias);
-        return roomIdRule?.action || "allow";
+        return "allow";
     }
 
     public getMessageRule(event: MatrixMessageEvent) {
