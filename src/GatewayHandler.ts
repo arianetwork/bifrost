@@ -14,6 +14,7 @@ import { ProtoHacks } from "./ProtoHacks";
 const log = Logging.get("GatewayHandler");
 
 const HISTORY_SAFE_ENUMS = ['shared', 'world_readable'];
+const HS_DOMAIN_REGEXP = /^.*:(.*)$/;
 
 /**
  * Responsible for handling querys & events on behalf of a gateway style bridge.
@@ -234,8 +235,9 @@ export class GatewayHandler {
                 if (this.config.tuning.waitOnProfileBeforeSend) {
                     await this.profileSync.updateProfile(protocol, data.sender, this.purple.gateway, undefined, undefined, data.nick);
                 }
-                log.info(`Attempting to join ${data.roomAlias}`)
-                roomId = await intent.join(data.roomAlias);
+                log.info(`Attempting to join ${data.roomAlias}`);
+                const serverDomain = data.roomAlias.match(HS_DOMAIN_REGEXP);
+                roomId = await intent.join(data.roomAlias, [ this.config.bridge.domain, (serverDomain ? serverDomain[1] : null) ]);
                 if (this.config.getRoomRule(roomId) === "deny") {
                     throw Error("This room has been denied");
                 }
