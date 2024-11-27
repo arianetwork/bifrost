@@ -14,7 +14,7 @@ import { IPublicRoomsResponse } from "../MatrixTypes";
 import { IConfigBridge } from "../Config";
 import { BridgeVersion, XMPPFeatures } from "./XMPPConstants";
 import { Util } from "../Util";
-import { IBifrostMAMRequest, MAMHandler } from "./MAM";
+import { IBifrostMAMRequest } from "./MAM";
 
 const log = Logging.get("ServiceHandler");
 

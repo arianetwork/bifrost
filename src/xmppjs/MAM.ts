@@ -301,19 +301,16 @@ export class MAMHandler {
     private async fetchMessagesFromMatrix(
         intent: Intent, roomId: string, token?: string, max?: number): Promise<{ end: string, events: WeakEvent[] }> {
         try {
-            const client = intent.getClient();
-            const filter = new Filter(MESSAGE_FILTER);
-            client._clientOpts = {
-                lazyLoadMembers: false,
-            };
-            const res = await client._createMessagesRequest(roomId, token, max, "b", filter);
+            const client = intent.matrixClient;
+            const { chunk, end } = await client.doRequest("GET", `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/messages`,
+                { dir: 'b', filter: encodeURIComponent(JSON.stringify(MESSAGE_FILTER)), from: token, limit: max });
             const events: WeakEvent[] = [];
-            for (const msg of res.chunk.reverse()) {
+            for (const msg of chunk.reverse()) {
                 if (msg.type === "m.room.message") {
                     events.push(msg);
                 }
             }
-            return { end: res.end, events: events };
+            return { end: end, events: events };
         } catch (ex) {
             log.error("MAM fetchMessageFromMatrix() Exception:", ex);
         }
