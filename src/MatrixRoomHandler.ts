@@ -1,4 +1,4 @@
-import { Bridge, MatrixUser, Intent, Logging, WeakEvent, RoomBridgeStoreEntry } from "matrix-appservice-bridge";
+import { Bridge, MatrixUser, Intent, Logger, WeakEvent, RoomBridgeStoreEntry } from "matrix-appservice-bridge";
 import { IBifrostInstance } from "./bifrost/Instance";
 import { MROOM_TYPE_GROUP, MROOM_TYPE_IM, IRemoteGroupData } from "./store/Types";
 import {
@@ -23,7 +23,7 @@ import { Config } from "./Config";
 import { decode as entityDecode } from "html-entities";
 import { MessageFormatter } from "./MessageFormatter";
 import request from "axios";
-const log = Logging.get("MatrixRoomHandler");
+const log = new Logger("MatrixRoomHandler");
 
 const ACCOUNT_LOCK_MS = 1000;
 const EVENT_MAPPING_SIZE = 16384;
@@ -65,7 +65,7 @@ export class MatrixRoomHandler {
                     return;
                 }
                 const intent = this.bridge.getIntent();
-                const roomId = await this.createOrGetGroupChatRoom(ev, intent);
+                const roomId = await this.createOrGetGroupChatRoom(ev, intent) as string;
                 if (!ev.should_invite) {
                     // Not all backends need to invite users to their rooms.
                     return false;
@@ -304,7 +304,7 @@ export class MatrixRoomHandler {
 
                 log.info("Request was a gateway request, so attempting to find room and create an entry");
                 try {
-                    const roomId = (await this.bridge.getIntent().getClient().getRoomIdForAlias(alias)).room_id;
+                    const roomId = await this.bridge.getIntent().matrixClient.resolveRoom(alias);
                     remoteData.gateway = true;
                     log.info(`Found ${roomId} for ${alias}`);
                     await this.store.storeRoom(roomId, MROOM_TYPE_GROUP, remoteId, remoteData);
@@ -407,7 +407,7 @@ export class MatrixRoomHandler {
                 try {
                     const eventId = await this.store.getMatrixEventId(roomId, data.message.redacted.redact_id);
                     if (eventId) {
-                        await intent.getClient().redactEvent(roomId, eventId, data.message.redacted.reason);
+                        await intent.matrixClient.redactEvent(roomId, eventId, data.message.redacted.reason);
                     } else {
                         throw Error(`we don't know about ${data.message.redacted.redact_id}`);
                     }
@@ -455,15 +455,15 @@ export class MatrixRoomHandler {
                 log.info(`Received group moderation from ${data.conv.name}, handling for ${data.message.redacted.redact_id}`);
                 try {
                     const botIntent = this.bridge.getIntent();
-                    const roomId = await this.createOrGetGroupChatRoom(data, botIntent, true, true);
+                    const roomId = await this.createOrGetGroupChatRoom(data, botIntent, true, true) as string;
                     let eventId = await this.store.getMatrixIdFromStanzaId(roomId, data.message.redacted.redact_id);
                     if (eventId) {
-                        await botIntent.getClient().redactEvent(roomId, eventId, data.message.redacted.reason);
+                        await botIntent.matrixClient.redactEvent(roomId, eventId, data.message.redacted.reason);
                     } else {
                         eventId = this.stanzaEventIdMapping.get(data.message.redacted.redact_id);
                         log.info(`Didn't find processed inbound event, attempting to see if we sent it recently: ${eventId}`);
                         if (eventId) {
-                            await botIntent.getClient().redactEvent(roomId, eventId, data.message.redacted.reason);
+                            await botIntent.matrixClient.redactEvent(roomId, eventId, data.message.redacted.reason);
                         } else {
                             throw Error(`we don't know about ${data.message.redacted.redact_id}`);
                         }
@@ -628,7 +628,7 @@ export class MatrixRoomHandler {
             const roomId = await this.createOrGetGroupChatRoom(data, intent, true).catch((ex) => {
                 log.error(`Didn't handle join for ${data.sender} -> ${ex}`);
                 return;
-            });
+            }) as string;
             const account = this.purple.getAccount(data.account.username, data.account.protocol_id);
             // Do we need to set a profile before we can join to avoid uglyness?
             const profileNeeded = this.config.tuning.waitOnProfileBeforeSend &&
@@ -690,6 +690,7 @@ export class MatrixRoomHandler {
             const roomId = await this.createOrGetGroupChatRoom(data, intent, true, true);
             if (roomId === false) {
                 log.info("Room does not support setting topic");
+                return;
             }
             const state = await intent.roomState(roomId) as WeakEvent[];
             const topicEv = state.find((ev) => ev.type === "m.room.topic");
@@ -720,6 +721,7 @@ export class MatrixRoomHandler {
             const roomId = await this.createOrGetGroupChatRoom(data, intent, true, true);
             if (roomId === false) {
                 log.info("Room does not support setting avatar");
+                return;
             }
             const state = await intent.roomState(roomId) as WeakEvent[];
             const avatarEv = state.find((ev) => ev.type === "m.room.avatar");
@@ -731,10 +733,10 @@ export class MatrixRoomHandler {
             // get the buffer of the current avatar
             try {
                 let currentData: any;
-                if (currentUrl !== "") {
+                if (typeof(currentUrl) === "string" && currentUrl !== "") {
                     try {
                         let res = await request.get(
-                            intent.getClient().mxcUrlToHttp(currentUrl),
+                            await intent.matrixClient.mxcToHttp(currentUrl),
                             {
                                 responseType: "arraybuffer",
                             },
@@ -797,7 +799,7 @@ export class MatrixRoomHandler {
                 this.config.bridge.domain,
                 this.config.bridge.userPrefix,
             ).userId);
-            const roomId = await this.createOrGetGroupChatRoom(data, intent, true);
+            const roomId = await this.createOrGetGroupChatRoom(data, intent, true) as string;
             await intent.sendTyping(roomId, data.typing);
         } catch (ex) {
             log.error("handleChatTyping() exception:", ex);
@@ -815,7 +817,7 @@ export class MatrixRoomHandler {
                 this.config.bridge.userPrefix,
             ).userId;
             const intent = this.bridge.getIntent(userId);
-            const roomId = await this.createOrGetGroupChatRoom(data, intent, true);
+            const roomId = await this.createOrGetGroupChatRoom(data, intent, true) as string;
             const eventId = data.originIsMatrix ? data.messageId : this.remoteEventIdMapping.get(data.messageId);
             if (!eventId) {
                 log.info(`Got read receipt for ${data.messageId}, but no corresponding event was found`);

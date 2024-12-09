@@ -1,4 +1,4 @@
-import { WeakEvent, Intent, Bridge, Logging } from "matrix-appservice-bridge";
+import { WeakEvent, Intent, Bridge, Logger, MediaProxy } from "matrix-appservice-bridge";
 import { IBasicProtocolMessage, MessageFormatter } from "../MessageFormatter";
 import { XmppJsInstance } from "./XJSInstance";
 import { IConfigBridge } from "../Config";
@@ -6,7 +6,7 @@ import { MatrixMessageEvent } from "../MatrixTypes";
 import { IFetchReceivedGroupMsg } from "../bifrost/Events";
 import { Util } from "../Util";
 
-const log = Logging.get("MAMHandler");
+const log = new Logger("MAMHandler");
 
 // matrix-js-sdk lacks types
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -71,7 +71,7 @@ export class MAMHandler {
     private botIntent: Intent;
     private readonly fields: Map<string, string>;
 
-    constructor(private xmpp: XmppJsInstance, private bridge: Bridge, private config: IConfigBridge) {
+    constructor(private xmpp: XmppJsInstance, private bridge: Bridge, private config: IConfigBridge, private mediaProxy: MediaProxy) {
         this.mamCache = new Map();
         this.archiveFE = new Map();
         this.archiveLE = new Map();
@@ -284,7 +284,7 @@ export class MAMHandler {
                     timestamp: ev.origin_server_ts,
                     from: mucNick,
                     to: request.gatewayJID,
-                    payload: MessageFormatter.matrixEventToBody(ev as MatrixMessageEvent, this.config),
+                    payload: await MessageFormatter.matrixEventToBody(ev as MatrixMessageEvent, this.config, this.mediaProxy),
                     originId: ev.content?.origin_id as string,
                     remoteId: ev.content?.remote_id as string,
                     stanzaId: ev.content?.stanza_id as string,

@@ -1,4 +1,4 @@
-import { AppServiceBot, Logging, RemoteRoom } from "matrix-appservice-bridge";
+import { AppServiceBot, Logger, RemoteRoom } from "matrix-appservice-bridge";
 import { IBifrostInstance } from "./bifrost/Instance";
 import { IAccountEvent, IChatJoinProperties } from "./bifrost/Events";
 import { IStore } from "./store/Store";
@@ -9,7 +9,7 @@ import { ProtoHacks } from "./ProtoHacks";
 import { GatewayHandler } from "./GatewayHandler";
 import { XmppJsInstance } from "./xmppjs/XJSInstance";
 import { AutoRegistration } from "./AutoRegistration";
-const log = Logging.get("RoomSync");
+const log = new Logger("RoomSync");
 
 interface IRoomMembership {
     room_name: string;

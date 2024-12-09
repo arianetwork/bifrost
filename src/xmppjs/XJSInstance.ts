@@ -1,6 +1,6 @@
 /* eslint-disable max-classes-per-file */
 import { EventEmitter } from "events";
-import { Logging, MatrixUser, Bridge } from "matrix-appservice-bridge";
+import { Logger, MatrixUser, Bridge, MediaProxy } from "matrix-appservice-bridge";
 import { Element } from "@xmpp/xml";
 import { jid, JID } from "@xmpp/jid";
 import { IBifrostInstance } from "../bifrost/Instance";
@@ -32,8 +32,8 @@ import { IStza, StzaBase, StzaIqDiscoInfo, StzaIqPing, StzaIqPingError, StzaIqVc
 import { Util } from "../Util";
 import { v4 as uuid } from "uuid";
 
-const xLog = Logging.get("XMPP-conn");
-const log = Logging.get("XmppJsInstance");
+const xLog = new Logger("XMPP-conn");
+const log = new Logger("XmppJsInstance");
 
 class XmppProtocol extends BifrostProtocol {
     constructor() {
@@ -85,7 +85,7 @@ export class XmppJsInstance extends EventEmitter implements IBifrostInstance {
     private activeMUCUsers: Set<string>;
     private lastMessageInMUC: Map<string, { originIsMatrix: boolean, id: string }>;
     private checkMUCCache: Map<string, boolean>;
-    constructor(private config: Config) {
+    constructor(private config: Config, private mediaProxy: MediaProxy) {
         super();
         this.accounts = new Map();
         this.bufferedMessages = [];
@@ -120,7 +120,7 @@ export class XmppJsInstance extends EventEmitter implements IBifrostInstance {
     public preStart(bridge: Bridge, autoRegister: AutoRegistration) {
         this.autoRegister = autoRegister;
         this.bridge = bridge;
-        this.mamHandler = new MAMHandler(this, this.bridge, this.config.bridge);
+        this.mamHandler = new MAMHandler(this, this.bridge, this.config.bridge, this.mediaProxy);
         if (!autoRegister) {
             throw Error('autoRegistration not defined, cannot start bridge');
         }

@@ -1,7 +1,7 @@
 import { Element, x } from "@xmpp/xml";
 import { XmppJsInstance } from "./XJSInstance";
 import { jid, JID } from "@xmpp/jid";
-import { Logging } from "matrix-appservice-bridge";
+import { Logger } from "matrix-appservice-bridge";
 import request from "axios";
 import { IGatewayRoom } from "../bifrost/Gateway";
 import { IGatewayRoomQuery, IGatewayPublicRoomsQuery } from "../bifrost/Events";
@@ -16,7 +16,7 @@ import { BridgeVersion, XMPPFeatures } from "./XMPPConstants";
 import { Util } from "../Util";
 import { IBifrostMAMRequest } from "./MAM";
 
-const log = Logging.get("ServiceHandler");
+const log = new Logger("ServiceHandler");
 
 const MAX_AVATARS = 1024;
 
@@ -322,7 +322,7 @@ export class ServiceHandler {
             if (avatar) {
                 return avatar;
             }
-            const thumbUrl = intent.getClient().mxcUrlToHttp(
+            const thumbUrl = intent.matrixClient.mxcToHttp(
                 avatarUrl, 256, 256, "scale", false,
             );
             if (!thumbUrl) {

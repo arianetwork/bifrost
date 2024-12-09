@@ -2,7 +2,7 @@ import { XmppJsInstance, XMPP_PROTOCOL } from "./XJSInstance";
 import { Element, x } from "@xmpp/xml";
 import parse from "@xmpp/xml/lib/parse";
 import { jid, JID } from "@xmpp/jid";
-import { Bridge, Logging } from "matrix-appservice-bridge";
+import { Bridge, Logger } from "matrix-appservice-bridge";
 import { IConfigBridge } from "../Config";
 import { IBasicProtocolMessage } from "../MessageFormatter";
 import {
@@ -28,7 +28,7 @@ import { Util } from "../Util";
 import { ProtoHacks } from "../ProtoHacks";
 
 const REGEXP_MXC = /^mxc:\/\/.*/;
-const log = Logging.get("XmppJsGateway");
+const log = new Logger("XmppJsGateway");
 
 export interface RemoteGhostExtraData {
     rooms: {

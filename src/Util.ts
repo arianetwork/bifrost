@@ -1,10 +1,10 @@
 import { IChatJoinProperties } from "./bifrost/Events";
-import { Intent, Logging, MatrixUser, WeakEvent } from "matrix-appservice-bridge";
+import { Intent, Logger, MatrixUser, WeakEvent } from "matrix-appservice-bridge";
 import { JID } from "@xmpp/jid";
 import * as crypto from "crypto";
 import { stringprep } from "stringprep";
 
-const log = Logging.get("Util.Lib");
+const log = new Logger("Util.Lib");
 
 export class Util {
 

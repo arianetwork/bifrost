@@ -1,6 +1,6 @@
 import { IGatewayJoin, IGatewayRoomQuery, IGatewayPublicRoomsQuery, IChatJoinProperties } from "./bifrost/Events";
 import { IBifrostInstance } from "./bifrost/Instance";
-import { Bridge, Logging, Intent, RoomBridgeStoreEntry, WeakEvent } from "matrix-appservice-bridge";
+import { Bridge, Logger, Intent, RoomBridgeStoreEntry, WeakEvent } from "matrix-appservice-bridge";
 import { Config } from "./Config";
 import { IStore } from "./store/Store";
 import { MROOM_TYPE_GROUP, IRemoteGroupData } from "./store/Types";
@@ -11,7 +11,7 @@ import { MatrixMembershipEvent } from "./MatrixTypes";
 import { BifrostRemoteUser } from "./store/BifrostRemoteUser";
 import { ProtoHacks } from "./ProtoHacks";
 
-const log = Logging.get("GatewayHandler");
+const log = new Logger("GatewayHandler");
 
 const HISTORY_SAFE_ENUMS = ['shared', 'world_readable'];
 const HS_DOMAIN_REGEXP = /^.*:(.*)$/;
@@ -294,13 +294,13 @@ export class GatewayHandler {
     private async handleRoomQuery(ev: IGatewayRoomQuery) {
         log.info(`Trying to discover ${ev.roomAlias}`);
         try {
-            const res = await this.bridge.getIntent().getClient().resolveRoomAlias(ev.roomAlias);
+            const roomId = await this.bridge.getIntent().matrixClient.resolveRoom(ev.roomAlias);
             let roomAvatar: any;
             let roomDesc: any;
             let roomOccupants: number;
             let historyVis: any;
             try {
-                const state = await this.bridge.getIntent().roomState(res.room_id) as WeakEvent[];
+                const state = await this.bridge.getIntent().roomState(roomId) as WeakEvent[];
                 const roomEv = state.find((ev) => ev.type === "m.room.name");
                 const avatarEv = state.find((ev) => ev.type === "m.room.avatar");
                 historyVis = state.find((ev) => ev.type === "m.room.history_visibility");
@@ -310,10 +310,10 @@ export class GatewayHandler {
             } catch (ex) {
                 log.warn("Can't get occupants number:", ex);
             }
-            log.info(`Found ${res.room_id}`);
+            log.info(`Found ${roomId}`);
             ev.result(null, {
                 allowHistory: historyVis?.content?.history_visibility || 'joined',
-                roomId: res.room_id,
+                roomId: roomId,
                 roomAvatar: roomAvatar,
                 roomDesc: roomDesc,
                 roomOccupants: roomOccupants ? roomOccupants : 0,
@@ -330,7 +330,7 @@ export class GatewayHandler {
             // XXX: We should check to see if the room exists in our cache.
             // We have to join the room, as doing a lookup would not prompt a bridge like freenode
             // to intervene.
-            let res = await this.bridge.getIntent().getClient().publicRooms({
+            let res = await this.bridge.getIntent().matrixClient.doRequest('GET', '/_matrix/client/v3/publicRooms', {
                 server: ev.homeserver || undefined,
                 filter: {
                     generic_search_term: ev.searchString,

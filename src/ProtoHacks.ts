@@ -1,11 +1,11 @@
 import { IChatInvite, IChatJoined, IChatJoinProperties } from "./bifrost/Events";
 import { BifrostProtocol } from "./bifrost/Protocol";
 import { Intent } from "matrix-appservice-bridge";
-import { Logging } from "matrix-appservice-bridge";
+import { Logger } from "matrix-appservice-bridge";
 import { IBifrostAccount } from "./bifrost/Account";
 import { Util } from "./Util";
 import request from "axios";
-const log = Logging.get("ProtoHacks");
+const log = new Logger("ProtoHacks");
 
 export const PRPL_MATRIX = "prpl-matrix";
 export const PRPL_XMPP = "prpl-jabber";
@@ -20,8 +20,8 @@ export const XMPP_JS = "xmpp-js";
 export class ProtoHacks {
     public static async getAvatarHash(userId: string, avatarUrl: string, intent: Intent) {
         try {
-            const thumbUrl = intent.getClient().mxcUrlToHttp(
-                avatarUrl, 256, 256, "scale", false,
+            const thumbUrl = await intent.matrixClient.mxcToHttpThumbnail(
+                avatarUrl, 256, 256, "scale"
             );
             if (thumbUrl) {
                 const res = await request.get(

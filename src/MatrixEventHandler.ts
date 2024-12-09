@@ -1,4 +1,4 @@
-import { Bridge, RemoteUser, MatrixUser, Request, WeakEvent, RoomBridgeStoreEntry, UserMembership, TypingEvent } from "matrix-appservice-bridge";
+import { Bridge, RemoteUser, MatrixUser, Request, WeakEvent, RoomBridgeStoreEntry, UserMembership, TypingEvent, MediaProxy } from "matrix-appservice-bridge";
 import { MatrixMembershipEvent, MatrixMessageEvent } from "./MatrixTypes";
 import { MROOM_TYPE_UADMIN, MROOM_TYPE_IM, MROOM_TYPE_GROUP,
     IRemoteUserAdminData } from "./store/Types";
@@ -7,7 +7,7 @@ import { IBifrostInstance } from "./bifrost/Instance";
 import marked from "marked";
 import { IBifrostAccount } from "./bifrost/Account";
 import { Util } from "./Util";
-import { Logging } from "matrix-appservice-bridge";
+import { Logger } from "matrix-appservice-bridge";
 import { Deduplicator } from "./Deduplicator";
 import { AutoRegistration } from "./AutoRegistration";
 import { Config } from "./Config";
@@ -18,7 +18,7 @@ import { RoomAliasSet } from "./RoomAliasSet";
 import { MessageFormatter } from "./MessageFormatter";
 import { GatewayHandler } from "./GatewayHandler";
 import { BifrostRemoteUser } from "./store/BifrostRemoteUser";
-const log = Logging.get("MatrixEventHandler");
+const log = new Logger("MatrixEventHandler");
 
 /**
  * Handles events coming into the appservice.
@@ -34,6 +34,7 @@ export class MatrixEventHandler {
         private deduplicator: Deduplicator,
         private config: Config,
         private gatewayHandler: GatewayHandler,
+        private mediaProxy: MediaProxy,
     ) {
         this.roomAliases = new RoomAliasSet(this.config.portals, this.purple);
         this.pendingRoomAliases = new Map();
@@ -800,7 +801,7 @@ Say \`help\` for more commands.
             }
             const recipient: string = context.remote.get("recipient");
             log.info(`Sending IM to ${recipient}`);
-            const msg = MessageFormatter.matrixEventToBody(event as MatrixMessageEvent, this.config.bridge);
+            const msg = await MessageFormatter.matrixEventToBody(event as MatrixMessageEvent, this.config.bridge, this.mediaProxy);
             msg.origin_id = event.event_id;
             acct.sendIM(recipient, msg);
         } catch (ex) {
@@ -828,7 +829,7 @@ Say \`help\` for more commands.
                     room_id: event.room_id,
                     event: event,
                 } as IFetchReceivedGroupMsg);
-                const msg = MessageFormatter.matrixEventToBody(event as MatrixMessageEvent, this.config.bridge);
+                const msg = await MessageFormatter.matrixEventToBody(event as MatrixMessageEvent, this.config.bridge, this.mediaProxy);
                 msg.origin_id = event.event_id;
                 this.gatewayHandler.sendMatrixMessage(roomName, event.sender, msg, context);
                 return;
@@ -852,7 +853,7 @@ Say \`help\` for more commands.
                     }
                     await this.joinOrDefer(acct, roomName, props);
                 }
-                const msg = MessageFormatter.matrixEventToBody(event as MatrixMessageEvent, this.config.bridge);
+                const msg = await MessageFormatter.matrixEventToBody(event as MatrixMessageEvent, this.config.bridge, this.mediaProxy);
                 msg.origin_id = event.event_id;
                 let nick = "";
                 // XXX: Gnarly way of trying to determine who we are.
@@ -897,7 +898,7 @@ Say \`help\` for more commands.
             }
             const isGateway: boolean = context.remote.get("gateway");
             const roomName: string = context.remote.get("room_name");
-            const msg = MessageFormatter.matrixEventToBody(event as MatrixMessageEvent, this.config.bridge);
+            const msg = await MessageFormatter.matrixEventToBody(event as MatrixMessageEvent, this.config.bridge, this.mediaProxy);
             log.info(`Handling redaction for ${event.room_id} -> ID: ${msg.redacted.redact_id}, Reason: ${msg.redacted.reason}`);
             if (isGateway) {
                 try {

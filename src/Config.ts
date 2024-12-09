@@ -1,13 +1,13 @@
 import { IAutoRegStep } from "./AutoRegistration";
 import { IRoomAlias } from "./RoomAliasSet";
 import { IXJSBackendOpts } from "./xmppjs/XJSBackendOpts";
-import { Logging } from "matrix-appservice-bridge";
+import { Logger } from "matrix-appservice-bridge";
 import { PgDataStoreOpts } from "./store/postgres/PgDatastore";
 import { IAccountExtraConfig } from "./bifrost/Account";
 import { IPurpleBackendOpts } from "./purple/PurpleInstance";
 import { MatrixMessageEvent } from "./MatrixTypes";
 
-const log = Logging.get("Config");
+const log = new Logger("Config");
 
 export class Config {
 
@@ -18,6 +18,12 @@ export class Config {
         userPrefix: "_bifrost_",
         appservicePort: 9555,
         adminMxID: undefined,
+        mediaProxy: {
+            signingKeyPath: "",
+            ttlSeconds: 0,
+            bindPort: 0,
+            publicUrl: ""
+        },
     };
 
     public readonly roomRules: IConfigRoomRule[] = [];
@@ -130,6 +136,12 @@ export interface IConfigBridge {
     userPrefix: string;
     appservicePort?: number;
     adminMxID?: string,
+    mediaProxy: {
+        signingKeyPath: string;
+        ttlSeconds: number;
+        bindPort: number;
+        publicUrl: string;
+    },
 }
 
 export interface IConfigPurple {

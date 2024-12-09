@@ -1,4 +1,4 @@
-import { Cli, Bridge, AppServiceRegistration, Logging, WeakEvent, TypingEvent, Request, RoomBridgeStoreEntry } from "matrix-appservice-bridge";
+import { Cli, Bridge, AppServiceRegistration, Logger, WeakEvent, TypingEvent, Request, RoomBridgeStoreEntry, MediaProxy } from "matrix-appservice-bridge";
 import { EventEmitter } from "events";
 import { MatrixEventHandler } from "./MatrixEventHandler";
 import { MatrixRoomHandler } from "./MatrixRoomHandler";
@@ -16,11 +16,14 @@ import { AutoRegistration } from "./AutoRegistration";
 import { GatewayHandler } from "./GatewayHandler";
 import request from "axios";
 
-const log = Logging.get("Program");
-const bridgeLog = Logging.get("bridge");
+const log = new Logger("Program");
+const bridgeLog = new Logger("bridge");
 
 import { install as installSMS } from "source-map-support";
 import { IRemoteUserAdminData, MROOM_TYPE_UADMIN } from "./store/Types";
+
+import * as fs from "fs";
+import { webcrypto } from "node:crypto";
 
 installSMS();
 
@@ -72,7 +75,7 @@ class Program {
     }
 
     public start() {
-        Logging.configure({console: "debug"});
+        Logger.configure({console: "debug"});
 
         try {
             this.cli.run();
@@ -90,6 +93,21 @@ class Program {
         reg.addRegexPattern("aliases", "#bifrost_.*", true);
         reg.pushEphemeral = true;
         callback(reg);
+    }
+
+    private async initialiseMediaProxy(): Promise<MediaProxy> {
+        const config = this.config.bridge.mediaProxy;
+        const jwk = JSON.parse(fs.readFileSync(config.signingKeyPath, "utf8").toString());
+        const signingKey = await webcrypto.subtle.importKey('jwk', jwk, {
+            name: 'HMAC',
+            hash: 'SHA-512',
+        }, true, ['sign', 'verify']);
+        const publicUrl = new URL(config.publicUrl);
+
+        const mediaProxy = new MediaProxy({ publicUrl, signingKey, ttl: config.ttlSeconds * 1000 }, this.bridge.getIntent().matrixClient);
+        mediaProxy.start(config.bindPort);
+
+        return mediaProxy;
     }
 
     private async waitForHomeserver() {
@@ -173,11 +191,11 @@ class Program {
         port = this.cfg.bridge.appservicePort || port;
         if (checkOnly && this.config.logging.console === "off") {
             // Force console if we are doing an integrity check only.
-            Logging.configure({
+            Logger.configure({
                 console: "info",
             });
         } else {
-            Logging.configure(this.cfg.logging);
+            Logger.configure(this.cfg.logging);
         }
         let storeParams = {};
         if (this.config.datastore.engine === "nedb") {
@@ -240,7 +258,7 @@ class Program {
             throw new Error(`Backend ${this.cfg.purple.backend} not supported`);
         }
         const purple = this.purple!;
-        await this.bridge.initalise();
+        await this.bridge.initialise();
 
 
         this.store = await initiateStore(this.config.datastore, this.bridge);
@@ -260,6 +278,7 @@ class Program {
         await this.waitForHomeserver();
         await this.pingBridge();
         await this.registerBot();
+        const mediaProxy = await this.initialiseMediaProxy();
 
         this.profileSync = new ProfileSync(this.bridge, this.cfg, this.store);
         this.roomHandler = new MatrixRoomHandler(
@@ -267,7 +286,7 @@ class Program {
         );
         this.gatewayHandler = new GatewayHandler(purple, this.bridge, this.cfg, this.store, this.profileSync);
         this.eventHandler = new MatrixEventHandler(
-            purple, this.store, this.deduplicator, this.config, this.gatewayHandler,
+            purple, this.store, this.deduplicator, this.config, this.gatewayHandler, mediaProxy
         );
         let autoReg: AutoRegistration|undefined;
         if (this.config.autoRegistration.enabled && this.config.autoRegistration.protocolSteps !== undefined) {
