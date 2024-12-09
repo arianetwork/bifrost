@@ -1,5 +1,5 @@
 # Build node-purple. We need buster for python3.6, which is needed for node-purple
-FROM node:20-buster as builder
+FROM node:20-bookworm as builder
 COPY ./package.json ./package.json
 COPY ./yarn.lock ./yarn.lock
 COPY ./src ./src
@@ -11,7 +11,7 @@ COPY ./tsconfig.json ./tsconfig.json
 RUN yarn install --check-files
 
 # App
-FROM node:20-buster-slim
+FROM node:20-bookworm-slim
 
 RUN mkdir app
 WORKDIR /app
