@@ -8,10 +8,6 @@ import { Util } from "../Util";
 
 const log = new Logger("MAMHandler");
 
-// matrix-js-sdk lacks types
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { Filter } = require('matrix-js-sdk');
-
 // This is the library containing MAM (XEP-0313) class and functions
 
 const MAM_CACHE_MAX_LENGTH = 30000;
