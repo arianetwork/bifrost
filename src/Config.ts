@@ -1,29 +1,28 @@
 import { IAutoRegStep } from "./AutoRegistration";
 import { IRoomAlias } from "./RoomAliasSet";
 import { IXJSBackendOpts } from "./xmppjs/XJSBackendOpts";
-import { Logger } from "matrix-appservice-bridge";
 import { PgDataStoreOpts } from "./store/postgres/PgDatastore";
 import { IAccountExtraConfig } from "./bifrost/Account";
 import { IPurpleBackendOpts } from "./purple/PurpleInstance";
 import { MatrixMessageEvent } from "./MatrixTypes";
 
-const log = new Logger("Config");
+export type ConfigValue = { [key: string]: ConfigValue } | string | boolean | number | null;
 
 export class Config {
 
     public readonly bridge: IConfigBridge = {
         domain: "",
         homeserverUrl: "",
-        mediaserverUrl: undefined,
         userPrefix: "_bifrost_",
         appservicePort: 9555,
         adminMxID: undefined,
-        mediaProxy: {
-            signingKeyPath: "",
-            ttlSeconds: 0,
-            bindPort: 0,
-            publicUrl: ""
-        },
+    };
+
+    public readonly mediaproxy: IConfigMediaProxy = {
+        signingKeyPath: undefined,
+        ttlSeconds: 86400,
+        bindPort: 86400,
+        publicUrl: undefined,
     };
 
     public readonly roomRules: IConfigRoomRule[] = [];
@@ -55,7 +54,6 @@ export class Config {
 
     public readonly logging: IConfigLogging = {
         console: "info",
-        files: undefined,
     };
 
     public readonly profile: IConfigProfile = {
@@ -117,7 +115,7 @@ export class Config {
      * @param newConfig Config keys
      * @param configLayer Private parameter
      */
-    public ApplyConfig(newConfig: {[key: string]: any}, configLayer: any = this) {
+    public ApplyConfig(newConfig: ConfigValue, configLayer: ConfigValue | Config = this) {
         Object.keys(newConfig).forEach((key) => {
             if (typeof(configLayer[key]) === "object" &&
                 !Array.isArray(configLayer[key])) {
@@ -132,16 +130,16 @@ export class Config {
 export interface IConfigBridge {
     domain: string;
     homeserverUrl: string;
-    mediaserverUrl?: string;
     userPrefix: string;
     appservicePort?: number;
-    adminMxID?: string,
-    mediaProxy: {
-        signingKeyPath: string;
-        ttlSeconds: number;
-        bindPort: number;
-        publicUrl: string;
-    },
+    adminMxID?: string;
+}
+
+export interface IConfigMediaProxy {
+    signingKeyPath: string;
+    ttlSeconds: number;
+    bindPort: number;
+    publicUrl: string;
 }
 
 export interface IConfigPurple {

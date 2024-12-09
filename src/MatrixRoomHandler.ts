@@ -27,7 +27,6 @@ const log = new Logger("MatrixRoomHandler");
 
 const ACCOUNT_LOCK_MS = 1000;
 const EVENT_MAPPING_SIZE = 16384;
-const ROOM_CACHE_SIZE = 75;
 
 /**
  * Handles creation and handling of rooms.
@@ -49,6 +48,13 @@ export class MatrixRoomHandler {
         this.accountRoomLock = new Set();
         this.alreadyKnownSenders = new Set();
         this.roomCreationLock = new Map();
+        const handleAsyncEvent = function <Args = unknown, T = unknown>(fn: (...args: Args[]) => Promise<T>): (...args: Args[]) => void {
+            return (...args: Args[]) => {
+                fn(...args).catch(ex => {
+                    log.warn(`Failed to handle event`, ex);
+                })
+            };
+        };
         if (this.purple.needsDedupe() || this.purple.needsAccountLock()) {
             purple.on("chat-joined", this.onChatJoined.bind(this));
         }
@@ -81,17 +87,17 @@ export class MatrixRoomHandler {
                 log.error("Exception while handling chat-joined-new event:", ex);
             }
         });
-        purple.on("received-im-msg", this.handleIncomingIM.bind(this));
-        purple.on("received-chat-msg", this.handleIncomingChatMsg.bind(this));
-        purple.on("chat-invite", this.handleChatInvite.bind(this));
-        purple.on("chat-user-joined", this.handleRemoteUserState.bind(this));
-        purple.on("chat-user-left", this.handleRemoteUserState.bind(this));
-        purple.on("chat-user-kick", this.handleRemoteUserState.bind(this));
+        purple.on("received-im-msg", handleAsyncEvent(this.handleIncomingIM.bind(this)));
+        purple.on("received-chat-msg", handleAsyncEvent(this.handleIncomingChatMsg.bind(this)));
+        purple.on("chat-invite", handleAsyncEvent(this.handleChatInvite.bind(this)));
+        purple.on("chat-user-joined", handleAsyncEvent(this.handleRemoteUserState.bind(this)));
+        purple.on("chat-user-left", handleAsyncEvent(this.handleRemoteUserState.bind(this)));
+        purple.on("chat-user-kick", handleAsyncEvent(this.handleRemoteUserState.bind(this)));
         /* This also handles chat names, which are just set as the conv.name */
-        purple.on("chat-topic", this.handleTopic.bind(this));
-        purple.on("chat-avatar", this.handleRoomAvatar.bind(this));
-        purple.on("im-typing", this.handleIMTyping.bind(this));
-        purple.on("chat-typing", this.handleChatTyping.bind(this));
+        purple.on("chat-topic", handleAsyncEvent(this.handleTopic.bind(this)));
+        purple.on("chat-avatar", handleAsyncEvent(this.handleRoomAvatar.bind(this)));
+        purple.on("im-typing", handleAsyncEvent(this.handleIMTyping.bind(this)));
+        purple.on("chat-typing", handleAsyncEvent(this.handleChatTyping.bind(this)));
         purple.on("store-remote-user", (storeUser: IStoreRemoteUser) => {
             try {
                 log.info(`Storing remote ghost for ${storeUser.mxId} -> ${storeUser.remoteId}`);
@@ -484,7 +490,7 @@ export class MatrixRoomHandler {
                 return;
             }
             const remoteId = Util.createRemoteId(data.account.protocol_id, data.sender);
-            if (this.purple.needsDedupe() && this.deduplicator.checkAndRemove(
+            if (this.purple.needsDedupe() && await this.deduplicator.checkAndRemove(
                 data.conv.name,
                 remoteId,
                 data.message.body,

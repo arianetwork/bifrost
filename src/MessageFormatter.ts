@@ -1,7 +1,7 @@
 import { BifrostProtocol } from "./bifrost/Protocol";
 import { PRPL_S4B, PRPL_XMPP } from "./ProtoHacks";
 import { Parser } from "htmlparser2";
-import { Intent, Logger, WeakEvent, MediaProxy } from "matrix-appservice-bridge";
+import { Intent, Logger, MediaProxy } from "matrix-appservice-bridge";
 import { IConfigBridge } from "./Config";
 import request from "axios";
 import { IMatrixMsgContents, MatrixMessageEvent } from "./MatrixTypes";
@@ -58,8 +58,6 @@ export class MessageFormatter {
             };
         }
         if (["m.file", "m.image", "m.video"].includes(event.content.msgtype) && event.content.url) {
-            const uriBits = event.content.url.substr("mxc://".length).split("/");
-            const url = (config.mediaserverUrl ? config.mediaserverUrl : config.homeserverUrl).replace(/\/$/, "");
             return {
                 body: content.body,
                 id: event.event_id,

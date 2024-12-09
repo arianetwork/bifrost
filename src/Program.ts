@@ -1,4 +1,4 @@
-import { Cli, Bridge, AppServiceRegistration, Logger, WeakEvent, TypingEvent, Request, RoomBridgeStoreEntry, MediaProxy } from "matrix-appservice-bridge";
+import { Cli, Bridge, AppServiceRegistration, Logger, TypingEvent, Request, MediaProxy } from "matrix-appservice-bridge";
 import { EventEmitter } from "events";
 import { MatrixEventHandler } from "./MatrixEventHandler";
 import { MatrixRoomHandler } from "./MatrixRoomHandler";
@@ -8,7 +8,7 @@ import { ProfileSync } from "./ProfileSync";
 import { RoomSync } from "./RoomSync";
 import { IStore, initiateStore } from "./store/Store";
 import { Deduplicator } from "./Deduplicator";
-import { Config } from "./Config";
+import { Config, ConfigValue } from "./Config";
 import { Util } from "./Util";
 import { XmppJsInstance } from "./xmppjs/XJSInstance";
 import { Metrics } from "./Metrics";
@@ -16,16 +16,14 @@ import { AutoRegistration } from "./AutoRegistration";
 import { GatewayHandler } from "./GatewayHandler";
 import request from "axios";
 
+Logger.configure({ console: "debug" });
 const log = new Logger("Program");
 const bridgeLog = new Logger("bridge");
 
-import { install as installSMS } from "source-map-support";
 import { IRemoteUserAdminData, MROOM_TYPE_UADMIN } from "./store/Types";
 
 import * as fs from "fs";
 import { webcrypto } from "node:crypto";
-
-installSMS();
 
 EventEmitter.defaultMaxListeners = 50;
 
@@ -54,9 +52,9 @@ class Program {
             },
             registrationPath: "bifrost-registration.yaml",
             generateRegistration: this.generateRegistration,
-            run: async (port: number, config: any) => {
+            run: async (port: number, config) => {
                 try {
-                    await this.runBridge(port, config);
+                    await this.runBridge(port, config as ConfigValue);
                 } catch (ex) {
                     log.error("Failed to start:", ex);
                     process.exit(1);
@@ -75,8 +73,6 @@ class Program {
     }
 
     public start() {
-        Logger.configure({console: "debug"});
-
         try {
             this.cli.run();
         } catch (ex) {
@@ -96,24 +92,25 @@ class Program {
     }
 
     private async initialiseMediaProxy(): Promise<MediaProxy> {
-        const config = this.config.bridge.mediaProxy;
-        const jwk = JSON.parse(fs.readFileSync(config.signingKeyPath, "utf8").toString());
+        log.info("Initialising Media Proxy...");
+        log.info("Signing Key Path: ", this.cfg.mediaproxy.signingKeyPath);
+        const jwk = JSON.parse(fs.readFileSync(this.cfg.mediaproxy.signingKeyPath, "utf8").toString());
         const signingKey = await webcrypto.subtle.importKey('jwk', jwk, {
             name: 'HMAC',
             hash: 'SHA-512',
         }, true, ['sign', 'verify']);
-        const publicUrl = new URL(config.publicUrl);
+        const publicUrl = new URL(this.cfg.mediaproxy.publicUrl);
 
-        const mediaProxy = new MediaProxy({ publicUrl, signingKey, ttl: config.ttlSeconds * 1000 }, this.bridge.getIntent().matrixClient);
-        mediaProxy.start(config.bindPort);
+        const mediaProxy = new MediaProxy({ publicUrl, signingKey, ttl: this.cfg.mediaproxy.ttlSeconds * 1000 }, this.bridge.getIntent().matrixClient);
+        mediaProxy.start(this.cfg.mediaproxy.bindPort);
 
         return mediaProxy;
     }
 
     private async waitForHomeserver() {
-        log.info("Checking if homeserver is up");
         // Wait for the homeserver to start before progressing with the bridge.
-        const url = `${this.config.bridge.homeserverUrl}/_matrix/client/versions`;
+        const url = `${this.cfg.bridge.homeserverUrl}/_matrix/client/versions`;
+        log.info("Checking if homeserver is up, at: ", url);
         while (true) {
             try {
                 await request.get(url);
@@ -185,7 +182,7 @@ class Program {
         }
     }
 
-    private async runBridge(port: number, config: any) {
+    private async runBridge(port: number, config: ConfigValue) {
         const checkOnly = process.env.BIFROST_CHECK_ONLY === "true";
         this.cfg.ApplyConfig(config);
         port = this.cfg.bridge.appservicePort || port;
@@ -209,6 +206,8 @@ class Program {
                 disableStores: true,
             };
         }
+        log.info("Starting bridge...");
+        log.info("Bridge Administrator set to:", this.cfg.bridge.adminMxID);
         this.bridge = new Bridge({
             controller: {
             // onUserQuery: userQuery,
@@ -290,7 +289,7 @@ class Program {
         );
         let autoReg: AutoRegistration|undefined;
         if (this.config.autoRegistration.enabled && this.config.autoRegistration.protocolSteps !== undefined) {
-            autoReg = new AutoRegistration(
+            autoReg = await AutoRegistration.create(
                 this.config.autoRegistration,
                 this.config.access,
                 this.bridge,
@@ -341,3 +340,7 @@ class Program {
 }
 
 new Program().start();
+
+process.on('unhandledRejection', (reason, promise) => {
+    log.warn(`Unhandled rejection`, reason, promise);
+});

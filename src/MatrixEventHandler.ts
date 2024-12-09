@@ -4,7 +4,7 @@ import { MROOM_TYPE_UADMIN, MROOM_TYPE_IM, MROOM_TYPE_GROUP,
     IRemoteUserAdminData } from "./store/Types";
 import { BifrostProtocol } from "./bifrost/Protocol";
 import { IBifrostInstance } from "./bifrost/Instance";
-import marked from "marked";
+import { Marked } from "marked";
 import { IBifrostAccount } from "./bifrost/Account";
 import { Util } from "./Util";
 import { Logger } from "matrix-appservice-bridge";
@@ -19,6 +19,7 @@ import { MessageFormatter } from "./MessageFormatter";
 import { GatewayHandler } from "./GatewayHandler";
 import { BifrostRemoteUser } from "./store/BifrostRemoteUser";
 const log = new Logger("MatrixEventHandler");
+const marked = new Marked();
 
 /**
  * Handles events coming into the appservice.

@@ -7,7 +7,10 @@ import { IStore } from "./store/Store";
 import { IBifrostInstance } from "./bifrost/Instance";
 import { IBifrostAccount } from "./bifrost/Account";
 import { BifrostProtocol } from "./bifrost/Protocol";
-import QuickLRU from "quick-lru";
+// @ts-ignore - This is just a type import.
+import type QLRU from "quick-lru";
+
+const QuickLRU = import("quick-lru");
 const log = new Logger("AutoRegistration");
 export interface IAutoRegHttpOpts {
     method: "get"|"post"|"put";
@@ -24,13 +27,23 @@ export interface IAutoRegStep {
 }
 
 export class AutoRegistration {
-    private nameCache = new QuickLRU<string, {[key: string]: string}>({ maxSize: this.autoRegConfig.registrationNameCacheSize });
+
+    static async create(autoRegConfig: IConfigAutoReg,
+        accessConfig: IConfigAccessControl,
+        bridge: Bridge,
+        store: IStore,
+        protoInstance: IBifrostInstance) {
+        const cache: QLRU<string, Record<string, string>> = new (await QuickLRU).default({ maxSize: autoRegConfig.registrationNameCacheSize });
+        return new AutoRegistration(autoRegConfig, accessConfig, bridge, store, protoInstance, cache);
+    }
+
     constructor(
         private autoRegConfig: IConfigAutoReg,
         private accessConfig: IConfigAccessControl,
         private bridge: Bridge,
         private store: IStore,
-        private protoInstance: IBifrostInstance) { }
+        private protoInstance: IBifrostInstance,
+        private readonly nameCache: QLRU<string, Record<string, string>>) {}
 
     public isSupported(protocol: string) {
         return Object.keys(this.autoRegConfig.protocolSteps!).includes(protocol);
