@@ -18,6 +18,7 @@ interface IRoomMembership {
 }
 
 const SYNC_RETRY_MS = 20000;
+const JOINPART_DELAY_MS = 3000;
 const MAX_SYNCS = 50;
 const JOINLEAVE_TIMEOUT = 240000;
 
@@ -218,12 +219,14 @@ export class RoomSync {
                 try {
                     if (membership.membership === "join") {
                         log.info(`${i}/${reconsToMake} JOIN ${remoteId} -> ${membership.room_name}`);
+                        await new Promise((resolve) => setTimeout(resolve, JOINPART_DELAY_MS));
                         await ProtoHacks.addJoinProps(
                             acct.protocol.id, membership.params, matrixUser.getId(), this.intent);
                         await acct!.joinChat(membership.params, this.bifrost, JOINLEAVE_TIMEOUT, false);
                         acct!.setJoinPropertiesForRoom(membership.room_name, membership.params);
                     } else {
                         log.info(`${i}/${reconsToMake} LEAVE ${remoteId} -> ${membership.room_name}`);
+                        await new Promise((resolve) => setTimeout(resolve, JOINPART_DELAY_MS));
                         await acct!.rejectChat(membership.params);
                         this.deduplicator.decrementRoomUsers(membership.room_name);
                     }
