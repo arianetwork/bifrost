@@ -2,7 +2,6 @@ import { Element, x } from "@xmpp/xml";
 import { XmppJsInstance } from "./XJSInstance";
 import { jid, JID } from "@xmpp/jid";
 import { Logger } from "matrix-appservice-bridge";
-import request from "axios";
 import { IGatewayRoom } from "../bifrost/Gateway";
 import { IGatewayRoomQuery, IGatewayPublicRoomsQuery } from "../bifrost/Events";
 import {
@@ -15,6 +14,7 @@ import { IConfigBridge } from "../Config";
 import { BridgeVersion, XMPPFeatures } from "./XMPPConstants";
 import { Util } from "../Util";
 import { IBifrostMAMRequest } from "./MAM";
+import { ProtoHacks } from "../ProtoHacks";
 
 const log = new Logger("ServiceHandler");
 
@@ -322,20 +322,14 @@ export class ServiceHandler {
             if (avatar) {
                 return avatar;
             }
-            const thumbUrl = intent.matrixClient.mxcToHttp(
-                avatarUrl, 256, 256, "scale", false,
+            const thumbUrl = await intent.matrixClient.mxcToHttpThumbnail(
+                avatarUrl, 256, 256, "scale"
             );
             if (!thumbUrl) {
                 return undefined;
             }
 
-            const file = await request.get(thumbUrl, {
-                responseType: "arraybuffer",
-            });
-            avatar = {
-                data: Buffer.from(file.data),
-                type: file.headers["content-type"],
-            };
+            avatar = await ProtoHacks.authedDownloadContent(thumbUrl, intent);
             this.avatarCache.set(avatarUrl, avatar);
             if (this.avatarCache.size > MAX_AVATARS) {
                 this.avatarCache.delete(this.avatarCache.keys()[0]);

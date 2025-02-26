@@ -22,7 +22,6 @@ import { Deduplicator } from "./Deduplicator";
 import { Config } from "./Config";
 import { decode as entityDecode } from "html-entities";
 import { MessageFormatter } from "./MessageFormatter";
-import request from "axios";
 const log = new Logger("MatrixRoomHandler");
 
 const ACCOUNT_LOCK_MS = 1000;
@@ -741,11 +740,9 @@ export class MatrixRoomHandler {
                 let currentData: any;
                 if (typeof(currentUrl) === "string" && currentUrl !== "") {
                     try {
-                        let res = await request.get(
+                        let res = await ProtoHacks.authedDownloadContent(
                             await intent.matrixClient.mxcToHttp(currentUrl),
-                            {
-                                responseType: "arraybuffer",
-                            },
+                            intent
                         );
                         currentData = Buffer.from(res.data);
                     } catch (ex) {

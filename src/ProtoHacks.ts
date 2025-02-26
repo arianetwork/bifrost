@@ -4,7 +4,6 @@ import { Intent } from "matrix-appservice-bridge";
 import { Logger } from "matrix-appservice-bridge";
 import { IBifrostAccount } from "./bifrost/Account";
 import { Util } from "./Util";
-import request from "axios";
 const log = new Logger("ProtoHacks");
 
 export const PRPL_MATRIX = "prpl-matrix";
@@ -12,24 +11,32 @@ export const PRPL_XMPP = "prpl-jabber";
 export const PRPL_S4B = "prpl-sipe";
 export const XMPP_JS = "xmpp-js";
 
+const MEDIAV1_FIXER = /(http|https):\/\/.*\/_matrix\/client\/v1\/media/;
+const MEDIAV3_FIXER = /(http|https):\/\/.*\/_matrix\/media\/v3/;
+
 /**
  * This class hacks around issues with certain protocols when interloping with
  * Matrix. The author kindly asks you to take care and document these functions
  * carefully so that future folks can understand what is going on.
  */
 export class ProtoHacks {
+    public static async authedDownloadContent(path: string, intent: Intent): Promise<{ data: Buffer, type: string }>  {
+        // strip URI portion from Path
+        const fixedMediaPath: string = path.replace(MEDIAV1_FIXER, "/_matrix/media/v3") || path.replace(MEDIAV3_FIXER, "/_matrix/media/v3");
+        const res = await intent.matrixClient.doRequest("GET", fixedMediaPath || path, { allow_remote: true }, null, null, true, null, true);
+        return {
+            data: res.body,
+            type: res.headers["content-type"],
+        }
+    }
+
     public static async getAvatarHash(userId: string, avatarUrl: string, intent: Intent) {
         try {
-            const thumbUrl = await intent.matrixClient.mxcToHttpThumbnail(
+            let thumbUrl = await intent.matrixClient.mxcToHttpThumbnail(
                 avatarUrl, 256, 256, "scale"
             );
             if (thumbUrl) {
-                const res = await request.get(
-                    thumbUrl,
-                    {
-                        responseType: "arraybuffer",
-                    },
-                );
+                const res = await this.authedDownloadContent(thumbUrl, intent);
                 if (res) {
                     return Util.sha1(Buffer.from(res.data).toString("binary"));
                 } else {
@@ -38,7 +45,7 @@ export class ProtoHacks {
                 }
             }
         } catch (ex) {
-            log.warn(`Error while processing ${userId}'s avatar to compute the hash: ${ex}`);
+            log.warn(`Error while processing ${userId}'s avatar to compute the hash: ${JSON.stringify(ex)}`);
             return;
         }
     }
